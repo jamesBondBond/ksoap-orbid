@@ -1,0 +1,397 @@
+package com.orbid.orbidme;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.protocol.HTTP;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import com.orbid.setting.SettingMain;
+import com.orbidme.setting.advertiser.SettingMainAdvertiser;
+
+import android.app.AlertDialog;
+import android.app.ProgressDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.Button;
+import android.widget.ListView;
+import android.widget.Toast;
+import android.widget.AdapterView.OnItemClickListener;
+
+public class SignIn extends Fragment implements OnClickListener {
+
+	Button signin, checkin, setting;
+	ListView adsList;
+	String strResponce;
+
+	public static String KEY_TITLE = "Title";
+	public static String KEY_ACTUALPRICE = "ActualPrice";
+	public static String KEY_IMAGE = "Image";
+	public static String KEY_DISCOUNTEDPRICE = "DiscountedPrice";
+	public static String KEY_ADsSTATUS = "AdsStatus";
+	public static String KEY_REDIRECTURL = "RedirectUrl";
+	public static String KEY_IsFavoriteAd = "IsFavoriteAd";
+	public static String KEY_ClientsAdId = "ClientsAdId";
+	// public static String KEYTITLE="Title";
+
+	AdsAdapter adapter;
+	ArrayList<HashMap<String, String>> adsArrayList;
+	String URL = "http://resolutionx.com/web/services/BarService.svc/GetAdsApp?userId=0&totalAds=2";
+	SharedPreferences sharedpref;
+	String userId, AorU;
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		// TODO Auto-generated method stub
+		sharedpref = getActivity().getSharedPreferences("com.orbidme.app",
+				getActivity().MODE_PRIVATE);
+
+		userId = sharedpref.getString("UserID","0");
+		AorU = sharedpref.getString("AorU", "");
+
+		super.onCreate(savedInstanceState);
+	}
+
+	@Override
+	public View onCreateView(LayoutInflater inflater, ViewGroup container,
+			Bundle savedInstanceState) {
+
+		// TODO Auto-generated method stub
+		View v = inflater.inflate(R.layout.signin_screen, container, false);
+		/*
+		 * sharedpref = PreferenceManager
+		 * .getDefaultSharedPreferences(getActivity());
+		 */
+
+		Log.i("User Id Value", userId);
+
+		adsList = (ListView) v.findViewById(R.id.ads_list);
+
+		DisplayMetrics dm = new DisplayMetrics();
+		adsArrayList = new ArrayList<HashMap<String, String>>();
+		getActivity().getWindowManager().getDefaultDisplay().getMetrics(dm);
+
+		int w = dm.widthPixels;
+
+		if (w <= 800) {
+			if (userId.equalsIgnoreCase("0")) {
+				URL = "http://resolutionx.com/web/services/BarService.svc/GetAdsApp?userId=0&totalAds=" + 2;
+			}else
+			{
+				URL = "http://resolutionx.com/web/services/BarService.svc/GetAdsApp?userId="+userId+"&totalAds=" + 2;
+			}
+		
+		} else if (w > 800) {
+			if (userId.equalsIgnoreCase("")) {
+				URL = "http://resolutionx.com/web/services/BarService.svc/GetAdsApp?userId=0&totalAds=" + 3;
+			}else
+			{
+				URL = "http://resolutionx.com/web/services/BarService.svc/GetAdsApp?userId="+userId+"&totalAds=" + 3;
+			}
+		}
+
+		signin = (Button) v.findViewById(R.id.btn_signin);
+		checkin = (Button) v.findViewById(R.id.btn_checkin);
+		setting = (Button) v.findViewById(R.id.btn_setting);
+
+		if (userId.equalsIgnoreCase("0")) {
+
+			Log.i("User Id Value", userId);
+			signin.setVisibility(View.VISIBLE);
+			checkin.setVisibility(View.GONE);
+
+		} else {
+			Log.i("User Id Value", userId);
+			signin.setVisibility(View.GONE);
+			checkin.setVisibility(View.VISIBLE);
+		}
+		signin.setOnClickListener(this);
+		checkin.setOnClickListener(this);
+		setting.setOnClickListener(this);
+
+		new Ads_setting().execute();
+
+		adsList.setOnItemClickListener(new OnItemClickListener() {
+
+			@Override
+			public void onItemClick(AdapterView<?> arg0, View arg1,
+					int position, long arg3) {
+				// TODO Auto-generated method stub
+
+				String Isfavrt = adsArrayList.get(position).get(
+						KEY_IsFavoriteAd);
+				if (Isfavrt.equalsIgnoreCase("Y")) {
+					Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri
+							.parse(adsArrayList.get(position).get(
+									SignIn.KEY_REDIRECTURL)));
+					startActivity(browserIntent);
+					
+				} else {
+					new AddtoFavroite().execute(adsArrayList.get(position).get(
+							KEY_ClientsAdId));
+					Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri
+							.parse(adsArrayList.get(position).get(
+									SignIn.KEY_REDIRECTURL)));
+					startActivity(browserIntent);
+				}
+
+			}
+		});
+
+		return v;
+	}
+
+	class AddtoFavroite extends AsyncTask<String, Void, Void> {
+		@Override
+		protected void onPreExecute() {
+			// TODO Auto-generated method stub
+			super.onPreExecute();
+		}
+
+		@Override
+		protected Void doInBackground(String... params) {
+			// TODO Auto-generated method stub
+			try {
+				/*
+				 * http://resolutionx.com/web/services/BarService.svc/
+				 * AddFavoriteLinks? --Param-- "userId": Cookie_UserId, Â  Â  Â  Â 
+				 * Â  Â  "clientsAdId": clientsAdId, Â  Â  Â  Â  Â  Â  "actionTypeId":
+				 * "1"
+				 */
+				String myPlaceURl = "http://resolutionx.com/web/services/BarService.svc/AddFavoriteLinks?";
+				HttpPost placehttpPost = new HttpPost(myPlaceURl);
+				placehttpPost.setHeader("content-type", "application/json");
+				HttpClient placehttpClient = new DefaultHttpClient(
+						getHttpParameterObj(4000, 4000));
+				JSONObject placedata = new JSONObject();
+				// string userid, string fields, string values);
+				placedata.put("linkid", "0");
+				placedata.put("userId", userId);
+				placedata.put("clientsAdId", params[0]);
+				placedata.put("actionTypeId", "1");
+				
+				StringEntity placeentity = new StringEntity(
+						placedata.toString(), HTTP.UTF_8);
+				placehttpPost.setEntity(placeentity);
+				HttpResponse placeresponse = placehttpClient
+						.execute(placehttpPost);
+				// Getting data from the response to see if it was a success.
+				BufferedReader placereader = new BufferedReader(
+						new InputStreamReader(placeresponse.getEntity()
+								.getContent(), "UTF-8"));
+				String placejsonResultStr = placereader.readLine();
+				Log.d("AddtoFavroit", placejsonResultStr);
+
+			} catch (Exception e) {
+				// TODO: handle exception
+				Log.d("Exception",""+e);
+			}
+			return null;
+		}
+
+		@Override
+		protected void onPostExecute(Void result) {
+			// TODO Auto-generated method stub
+			super.onPostExecute(result);
+		}
+	}
+
+	private HttpParams getHttpParameterObj(int timeOutConnection,
+			int timeOutSocket) {
+		HttpParams httpParameters = new BasicHttpParams();
+		// Set the timeout in milliseconds until a connection is established.
+		HttpConnectionParams.setConnectionTimeout(httpParameters,
+				timeOutConnection);
+		// Set the default socket timeout (SO_TIMEOUT)
+		// in milliseconds which is the timeout for waiting for data.
+		HttpConnectionParams.setSoTimeout(httpParameters, timeOutSocket);
+		return httpParameters;
+	}
+
+	@Override
+	public void onClick(View v) {
+		// TODO Auto-generated method stub
+		if (v == signin) {
+
+			FragmentManager fm = getActivity().getSupportFragmentManager();
+			FragmentTransaction fragmentTransaction = fm.beginTransaction();
+			Fragment fr = new SignInBoth();
+
+			fragmentTransaction.replace(R.id.main_framelayout, fr);
+			fragmentTransaction.commit();
+		}
+		if (v == checkin) {
+
+			if (userId.equalsIgnoreCase("")) {
+
+				FragmentManager fm = getActivity().getSupportFragmentManager();
+				FragmentTransaction fragmentTransaction = fm.beginTransaction();
+				Fragment fr = new SignInBoth();
+
+				fragmentTransaction.replace(R.id.main_framelayout, fr);
+				fragmentTransaction.commit();
+			} else {
+				Toast.makeText(getActivity(), "Coming Soon", 1000).show();
+			}
+
+		}
+		if (v == setting) {
+
+			if (userId.equalsIgnoreCase("")) {
+
+				FragmentManager fm = getActivity().getSupportFragmentManager();
+				FragmentTransaction fragmentTransaction = fm.beginTransaction();
+				Fragment fr = new SignInBoth();
+
+				fragmentTransaction.replace(R.id.main_framelayout, fr);
+				fragmentTransaction.commit();
+			} else if (AorU.equalsIgnoreCase("A")) {
+				Intent i = new Intent(getActivity(),
+						SettingMainAdvertiser.class);
+				getActivity().startActivity(i);
+			} else {
+
+				Intent i = new Intent(getActivity(), SettingMain.class);
+				getActivity().startActivity(i);
+			}
+
+		}
+	}
+
+	class Ads_setting extends AsyncTask<Void, Void, Void> {
+		ProgressDialog pDialog;
+
+		@Override
+		protected void onPreExecute() {
+			// TODO Auto-generated method stub
+			pDialog = new ProgressDialog(getActivity());
+			pDialog.setMessage("Please wait..");
+			pDialog.show();
+			super.onPreExecute();
+		}
+
+		@Override
+		protected Void doInBackground(Void... params) {
+			// TODO Auto-generated method stub
+			InputStream is = null;
+
+			try {
+				HttpClient httpclient = new DefaultHttpClient();
+				// HttpContext localContext = new BasicHttpContext();
+				HttpGet httppost = new HttpGet(URL);
+
+				// httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+				HttpResponse response = httpclient.execute(httppost);
+				HttpEntity entity = response.getEntity();
+				is = entity.getContent();
+				strResponce = inputStreamToString(is).toString();
+				// String s = new String();
+				// s = strResponce.replace("\\", "");
+				Log.d("HTTP", "HTTP: OK" + strResponce);
+				JSONObject jsonobject = new JSONObject(strResponce);
+				String jsonString = jsonobject.getString("d");
+				JSONArray jsonArray = new JSONArray(jsonString);
+
+				for (int i = 0; i < jsonArray.length(); i++) {
+
+					JSONObject json = jsonArray.getJSONObject(i);
+
+					String title = json.getString(KEY_TITLE);
+					String actualprice = json.getString(KEY_ACTUALPRICE);
+					String discountprice = json.getString(KEY_DISCOUNTEDPRICE);
+					String image = json.getString(KEY_IMAGE);
+					String Isfavrt = json.getString(KEY_IsFavoriteAd);
+					String ClientId = json.getString(KEY_ClientsAdId);
+
+					HashMap<String, String> map = new HashMap<String, String>();
+					map.put(KEY_TITLE, title);
+					map.put(KEY_ACTUALPRICE, actualprice);
+					map.put(KEY_DISCOUNTEDPRICE, discountprice);
+					map.put(KEY_IsFavoriteAd, Isfavrt);
+					map.put(KEY_IMAGE, 
+							"http://orbidme.com/Upload/Clients/AdsImages/"
+									+ image);
+					map.put(KEY_ClientsAdId, ClientId);
+					// Log.d("HTTP", "Title" + title);
+					map.put(SignIn.KEY_REDIRECTURL,
+							json.getString(SignIn.KEY_REDIRECTURL));
+
+					adsArrayList.add(map);
+				}
+				Log.d("HTTP", "HTTP: OK" + jsonArray);
+
+			} catch (Exception e) {
+				Log.e("HTTP", "Error in http connection " + e.toString());
+			}
+			return null;
+		}
+
+		@Override
+		protected void onPostExecute(Void result) {
+			// TODO Auto-generated method stub
+			pDialog.dismiss();
+			adapter = new AdsAdapter(getActivity(), adsArrayList);
+			adsList.setAdapter(adapter);
+			/*
+			 * adsList.setOnItemClickListener(new OnItemClickListener() {
+			 * 
+			 * @Override public void onItemClick(AdapterView<?> arg0, View arg1,
+			 * int arg2, long arg3) { // TODO Auto-generated method stub Intent
+			 * browserIntent = new Intent(Intent.ACTION_VIEW, Uri
+			 * .parse(adsArrayList.get(arg2).get( SignIn.KEY_REDIRECTURL)));
+			 * startActivity(browserIntent); } });
+			 */
+			super.onPostExecute(result);
+		}
+	}
+
+	// //Input stream
+	public static StringBuilder inputStreamToString(InputStream is) {
+		String line = "";
+		StringBuilder total = new StringBuilder();
+		// Wrap a BufferedReader around the InputStream
+		BufferedReader rd = new BufferedReader(new InputStreamReader(is));
+		// Read response until the end
+		try {
+
+			while ((line = rd.readLine()) != null) {
+				total.append(line);
+			}
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+		// Return full string
+		return total;
+	}
+
+}
